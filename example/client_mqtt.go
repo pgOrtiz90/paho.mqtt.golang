@@ -4,7 +4,6 @@ import (
 		"fmt"
 		"log"
 		"net/url"
-		//"os"
 		"time"
 
 		mqtt "github.com/eclipse/paho.mqtt.golang"
@@ -12,7 +11,7 @@ import (
 
 
 func connect(clientId string, uri *url.URL) mqtt.Client{
-	opts := createClientOptions(clientId, uri)
+	opts := createClientOptions(cliengit dtId, uri)
 	client := mqtt.NewClient(opts)
 	token := client.Connect()
 
@@ -28,7 +27,7 @@ func connect(clientId string, uri *url.URL) mqtt.Client{
 
 func createClientOptions(clientId string, uri *url.URL) *mqtt.ClientOptions{
 	opts := mqtt.NewClientOptions()
-	opts.AddBroker(fmt.Sprintf("tcp://%s", uri.Host))
+	opts.AddBroker(fmt.Sprintf("quic://%s", uri.Host))
 	//opts.SetUsername(uri.User.Username())
 	//password, _ := uri.User.Password()
 	//opts.SetPassword(password)
@@ -45,7 +44,10 @@ func listen(uri *url.URL, topic string){
 }
 
 func main(){
-	uri, err := url.Parse("tcp://127.0.0.1:1883/test")
+	//mqtt.DEBUG = log.New(os.Stdout, "", 0)
+	//mqtt.ERROR = log.New(os.Stdout, "", 0)
+	uri, err := url.Parse("quic://127.0.0.1:1883/test")
+	//uri, err := url.Parse("tcp://127.0.0.1:1883/test")
 
 	if err != nil {
 		log.Fatal(err)

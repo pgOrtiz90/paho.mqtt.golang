@@ -15,8 +15,10 @@
 package mqtt
 
 import (
+	"context"
 	"crypto/tls"
 	"errors"
+	"github.com/lucas-clemente/quic-go"
 	"net"
 	"net/http"
 	"net/url"
@@ -24,6 +26,7 @@ import (
 	"reflect"
 	"sync/atomic"
 	"time"
+	"fmt"
 
 	"github.com/eclipse/paho.mqtt.golang/packets"
 	"golang.org/x/net/proxy"
@@ -39,12 +42,14 @@ func signalError(c chan<- error, err error) {
 func openConnection(uri *url.URL, tlsc *tls.Config, timeout time.Duration, headers http.Header) (net.Conn, error) {
 	switch uri.Scheme {
 	case "ws":
+		fmt.Printf("AQUI ws!!!\n")
 		conn, err := NewWebsocket(uri.String(), nil, timeout, headers)
 		return conn, err
 	case "wss":
 		conn, err := NewWebsocket(uri.String(), tlsc, timeout, headers)
 		return conn, err
 	case "tcp":
+		fmt.Printf("AQUI!!!\n")
 		allProxy := os.Getenv("all_proxy")
 		if len(allProxy) == 0 {
 			conn, err := net.DialTimeout("tcp", uri.Host, timeout)
@@ -61,6 +66,7 @@ func openConnection(uri *url.URL, tlsc *tls.Config, timeout time.Duration, heade
 		}
 		return conn, nil
 	case "unix":
+		fmt.Printf("AQUI!!! unix\n")
 		conn, err := net.DialTimeout("unix", uri.Host, timeout)
 		if err != nil {
 			return nil, err
@@ -95,9 +101,99 @@ func openConnection(uri *url.URL, tlsc *tls.Config, timeout time.Duration, heade
 		}
 
 		return tlsConn, nil
+	case "quic":
+
+		//conn, err := NewQuicSocket(uri.String(), nil, timeout, headers)
+		return nil, nil
+
 	}
 	return nil, errors.New("Unknown protocol")
 }
+
+
+func openConnection2(uri *url.URL, tlsc *tls.Config, timeout time.Duration, headers http.Header) (net.Conn, quic.Stream, error) {
+	switch uri.Scheme {
+	case "ws":
+		conn, err := NewWebsocket(uri.String(), nil, timeout, headers)
+		return conn, nil,err
+	case "wss":
+		conn, err := NewWebsocket(uri.String(), tlsc, timeout, headers)
+		return conn, nil, err
+	case "tcp":
+		fmt.Printf("Opening TCP Conexion\n")
+		allProxy := os.Getenv("all_proxy")
+		if len(allProxy) == 0 {
+			conn, err := net.DialTimeout("tcp", uri.Host, timeout)
+			if err != nil {
+				return nil, nil, err
+			}
+			return conn, nil,nil
+		}
+		proxyDialer := proxy.FromEnvironment()
+
+		conn, err := proxyDialer.Dial("tcp", uri.Host)
+		if err != nil {
+			return nil, nil, err
+		}
+		return conn, nil,nil
+	case "unix":
+		conn, err := net.DialTimeout("unix", uri.Host, timeout)
+		if err != nil {
+			return nil, nil, err
+		}
+		return conn, nil, nil
+	case "ssl":
+		fallthrough
+	case "tls":
+		fallthrough
+	case "tcps":
+		allProxy := os.Getenv("all_proxy")
+		if len(allProxy) == 0 {
+			conn, err := tls.DialWithDialer(&net.Dialer{Timeout: timeout}, "tcp", uri.Host, tlsc)
+			if err != nil {
+				return nil, nil, err
+			}
+			return conn, nil,nil
+		}
+		proxyDialer := proxy.FromEnvironment()
+
+		conn, err := proxyDialer.Dial("tcp", uri.Host)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		tlsConn := tls.Client(conn, tlsc)
+
+		err = tlsConn.Handshake()
+		if err != nil {
+			conn.Close()
+			return nil, nil, err
+		}
+
+		return tlsConn, nil, nil
+	case "quic":
+		tlsConf := &tls.Config{
+			InsecureSkipVerify: true,
+			NextProtos:         []string{"quic-echo-example"},
+		}
+		sess, err := quic.DialAddr(uri.Host, tlsConf, nil )
+		if err != nil {
+			return nil, nil, err
+		}
+
+		stream, err := sess.OpenStreamSync(context.Background())
+
+		if err != nil {
+			return nil, nil, err
+		}
+
+		return nil, stream ,nil
+		//conn, err := NewQuicSocket(uri.String(), nil, timeout, headers)
+
+	}
+	return nil, nil,errors.New("Unknown protocol")
+}
+
 
 // actually read incoming messages off the wire
 // send Message object into ibound channel
@@ -110,9 +206,16 @@ func incoming(c *client) {
 	DEBUG.Println(NET, "incoming started")
 
 	for {
-		if cp, err = packets.ReadPacket(c.conn); err != nil {
-			break
+		if c.conn != nil{
+			if cp, err = packets.ReadPacket(c.conn); err != nil {
+				break
+			}
+		}else if  c.sess != nil{
+			if cp, err = packets.ReadPacket(c.sess); err != nil {
+				break
+			}
 		}
+
 		DEBUG.Println(NET, "Received Message")
 		select {
 		case c.ibound <- cp:
@@ -157,20 +260,40 @@ func outgoing(c *client) {
 			msg := pub.p.(*packets.PublishPacket)
 
 			if c.options.WriteTimeout > 0 {
-				c.conn.SetWriteDeadline(time.Now().Add(c.options.WriteTimeout))
+				if c.conn != nil {
+					c.conn.SetWriteDeadline(time.Now().Add(c.options.WriteTimeout))
+				}else if c.sess != nil {
+					c.sess.SetWriteDeadline(time.Now().Add(c.options.WriteTimeout))
+				}
+
 			}
 
-			if err := msg.Write(c.conn); err != nil {
-				ERROR.Println(NET, "outgoing stopped with error", err)
-				pub.t.setError(err)
-				signalError(c.errors, err)
-				return
+			if c.conn != nil{
+				if err := msg.Write(c.conn); err != nil {
+					ERROR.Println(NET, "outgoing stopped with error", err)
+					pub.t.setError(err)
+					signalError(c.errors, err)
+					return
+				}
+			}else if c.sess != nil{
+				if err := msg.Write(c.sess); err != nil {
+					ERROR.Println(NET, "outgoing stopped with error", err)
+					pub.t.setError(err)
+					signalError(c.errors, err)
+					return
+				}
 			}
+
 
 			if c.options.WriteTimeout > 0 {
 				// If we successfully wrote, we don't want the timeout to happen during an idle period
 				// so we reset it to infinite.
-				c.conn.SetWriteDeadline(time.Time{})
+				if c.conn != nil{
+					c.conn.SetWriteDeadline(time.Time{})
+				}else if c.sess != nil{
+					c.sess.SetWriteDeadline(time.Time{})
+				}
+
 			}
 
 			if msg.Qos == 0 {
@@ -179,14 +302,27 @@ func outgoing(c *client) {
 			DEBUG.Println(NET, "obound wrote msg, id:", msg.MessageID)
 		case msg := <-c.oboundP:
 			DEBUG.Println(NET, "obound priority msg to write, type", reflect.TypeOf(msg.p))
-			if err := msg.p.Write(c.conn); err != nil {
-				ERROR.Println(NET, "outgoing stopped with error", err)
-				if msg.t != nil {
-					msg.t.setError(err)
+
+			if c.conn != nil{
+				if err := msg.p.Write(c.conn); err != nil {
+					ERROR.Println(NET, "outgoing stopped with error", err)
+					if msg.t != nil {
+						msg.t.setError(err)
+					}
+					signalError(c.errors, err)
+					return
 				}
-				signalError(c.errors, err)
-				return
+			}else if c.sess != nil{
+				if err := msg.p.Write(c.sess); err != nil {
+					ERROR.Println(NET, "outgoing stopped with error", err)
+					if msg.t != nil {
+						msg.t.setError(err)
+					}
+					signalError(c.errors, err)
+					return
+				}
 			}
+
 			switch msg.p.(type) {
 			case *packets.DisconnectPacket:
 				msg.t.(*DisconnectToken).flowComplete()

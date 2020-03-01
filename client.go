@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"github.com/eclipse/paho.mqtt.golang/packets"
+	"github.com/lucas-clemente/quic-go"
 )
 
 const (
@@ -103,6 +104,7 @@ type client struct {
 	sync.RWMutex
 	messageIds
 	conn            net.Conn
+	sess			quic.Stream
 	ibound          chan packets.ControlPacket
 	obound          chan *PacketAndToken
 	oboundP         chan *PacketAndToken
@@ -256,7 +258,9 @@ func (c *client) Connect() Token {
 		CONN:
 			DEBUG.Println(CLI, "about to write new connect msg")
 			c.Lock()
-			c.conn, err = openConnection(broker, c.options.TLSConfig, c.options.ConnectTimeout,
+			//c.conn, err = openConnection(broker, c.options.TLSConfig, c.options.ConnectTimeout,
+			//	c.options.HTTPHeaders)
+			c.conn, c.sess, err = openConnection2(broker, c.options.TLSConfig, c.options.ConnectTimeout,
 				c.options.HTTPHeaders)
 			c.Unlock()
 			if err == nil {
@@ -280,7 +284,12 @@ func (c *client) Connect() Token {
 					cm.ProtocolName = "MQTT"
 					cm.ProtocolVersion = 4
 				}
-				cm.Write(c.conn)
+
+				if c.conn != nil {
+					cm.Write(c.conn)
+				}else{
+					cm.Write(c.sess)
+				}
 
 				rc, t.sessionPresent = c.connect()
 				if rc != packets.Accepted {
@@ -288,6 +297,11 @@ func (c *client) Connect() Token {
 					if c.conn != nil {
 						c.conn.Close()
 						c.conn = nil
+					}
+
+					if c.sess != nil {
+						c.sess.Close()
+						c.sess = nil
 					}
 					c.Unlock()
 					//if the protocol version was explicitly set don't do any fallback
@@ -309,7 +323,7 @@ func (c *client) Connect() Token {
 			}
 		}
 
-		if c.conn == nil {
+		if c.conn == nil  && c.sess == nil{
 			if c.options.ConnectRetry {
 				DEBUG.Println(CLI, "Connect failed, sleeping for", int(c.options.ConnectRetryInterval.Seconds()), "seconds and will then retry")
 				time.Sleep(c.options.ConnectRetryInterval)
@@ -390,7 +404,8 @@ func (c *client) reconnect() {
 			cm := newConnectMsgFromOptions(&c.options, broker)
 			DEBUG.Println(CLI, "about to write new connect msg")
 			c.Lock()
-			c.conn, err = openConnection(broker, c.options.TLSConfig, c.options.ConnectTimeout, c.options.HTTPHeaders)
+			//c.conn, err = openConnection(broker, c.options.TLSConfig, c.options.ConnectTimeout, c.options.HTTPHeaders)
+			c.conn, c.sess, err = openConnection2(broker, c.options.TLSConfig, c.options.ConnectTimeout, c.options.HTTPHeaders)
 			c.Unlock()
 			if err == nil {
 				DEBUG.Println(CLI, "socket connected to broker")
@@ -412,13 +427,22 @@ func (c *client) reconnect() {
 					cm.ProtocolName = "MQTT"
 					cm.ProtocolVersion = 4
 				}
-				cm.Write(c.conn)
+				if c.conn != nil {
+					cm.Write(c.conn)
+				}else{
+					cm.Write(c.sess)
+				}
 
 				rc, _ = c.connect()
 				if rc != packets.Accepted {
 					if c.conn != nil {
 						c.conn.Close()
 						c.conn = nil
+					}
+
+					if c.sess != nil {
+						c.sess.Close()
+						c.sess = nil
 					}
 					//if the protocol version was explicitly set don't do any fallback
 					if c.options.protocolVersionExplicit {
@@ -484,24 +508,45 @@ func (c *client) reconnect() {
 func (c *client) connect() (byte, bool) {
 	DEBUG.Println(NET, "connect started")
 
-	ca, err := packets.ReadPacket(c.conn)
-	if err != nil {
-		ERROR.Println(NET, "connect got error", err)
-		return packets.ErrNetworkError, false
-	}
-	if ca == nil {
-		ERROR.Println(NET, "received nil packet")
-		return packets.ErrNetworkError, false
-	}
+	if c.conn != nil{
+		ca, err := packets.ReadPacket(c.conn)
+		if err != nil {
+			ERROR.Println(NET, "connect got error", err)
+			return packets.ErrNetworkError, false
+		}
+		if ca == nil {
+			ERROR.Println(NET, "received nil packet")
+			return packets.ErrNetworkError, false
+		}
 
-	msg, ok := ca.(*packets.ConnackPacket)
-	if !ok {
-		ERROR.Println(NET, "received msg that was not CONNACK")
-		return packets.ErrNetworkError, false
-	}
+		msg, ok := ca.(*packets.ConnackPacket)
+		if !ok {
+			ERROR.Println(NET, "received msg that was not CONNACK")
+			return packets.ErrNetworkError, false
+		}
 
-	DEBUG.Println(NET, "received connack")
-	return msg.ReturnCode, msg.SessionPresent
+		DEBUG.Println(NET, "received connack")
+		return msg.ReturnCode, msg.SessionPresent
+	}else {
+		ca, err := packets.ReadPacket(c.sess)
+		if err != nil {
+			ERROR.Println(NET, "connect got error", err)
+			return packets.ErrNetworkError, false
+		}
+		if ca == nil {
+			ERROR.Println(NET, "received nil packet")
+			return packets.ErrNetworkError, false
+		}
+
+		msg, ok := ca.(*packets.ConnackPacket)
+		if !ok {
+			ERROR.Println(NET, "received msg that was not CONNACK")
+			return packets.ErrNetworkError, false
+		}
+
+		DEBUG.Println(NET, "received connack")
+		return msg.ReturnCode, msg.SessionPresent
+	}
 }
 
 // Disconnect will end the connection with the server, but not before waiting
@@ -534,7 +579,11 @@ func (c *client) forceDisconnect() {
 		return
 	}
 	c.setConnected(disconnected)
-	c.conn.Close()
+	if c.conn != nil{
+		c.conn.Close()
+	}else if c.sess != nil{
+		c.sess.Close()
+	}
 	DEBUG.Println(CLI, "forcefully disconnecting")
 	c.disconnect()
 }
@@ -545,7 +594,11 @@ func (c *client) internalConnLost(err error) {
 	// error from closing the socket but state will be "disconnected"
 	if c.IsConnected() {
 		c.closeStop()
-		c.conn.Close()
+		if c.conn != nil{
+			c.conn.Close()
+		}else if c.sess != nil{
+			c.sess.Close()
+		}
 		c.workers.Wait()
 		if c.options.CleanSession && !c.options.AutoReconnect {
 			c.messageIds.cleanUp()
@@ -593,6 +646,8 @@ func (c *client) closeConn() {
 	defer c.Unlock()
 	if c.conn != nil {
 		c.conn.Close()
+	}else if c.sess != nil{
+		c.sess.Close()
 	}
 }
 
@@ -610,6 +665,7 @@ func (c *client) disconnect() {
 // to the specified topic.
 // Returns a token to track delivery of the message to the broker
 func (c *client) Publish(topic string, qos byte, retained bool, payload interface{}) Token {
+	fmt.Printf("Publish!\n")
 	token := newToken(packets.Publish).(*PublishToken)
 	DEBUG.Println(CLI, "enter Publish")
 	switch {
