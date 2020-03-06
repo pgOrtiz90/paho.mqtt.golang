@@ -211,6 +211,7 @@ var ErrNotConnected = errors.New("Not Connected")
 // it will attempt to connect at v3.1.1 and auto retry at v3.1 if that
 // fails
 func (c *client) Connect() Token {
+	fmt.Printf("Connecting Client MQTT...\n")
 	var err error
 	t := newToken(packets.Connect).(*ConnectToken)
 	DEBUG.Println(CLI, "Connect()")
@@ -241,6 +242,7 @@ func (c *client) Connect() Token {
 
 		var rc byte
 		protocolVersion := c.options.ProtocolVersion
+		fmt.Printf("%d\n", protocolVersion)
 
 		if len(c.options.Servers) == 0 {
 			t.setError(fmt.Errorf("No servers defined to connect to"))
@@ -507,9 +509,11 @@ func (c *client) reconnect() {
 // is in progress if clean session is false.
 func (c *client) connect() (byte, bool) {
 	DEBUG.Println(NET, "connect started")
-
+	fmt.Printf("Connect Started\n")
 	if c.conn != nil{
+		fmt.Printf("ConnACK CLIENT\n")
 		ca, err := packets.ReadPacket(c.conn)
+		fmt.Printf("ConnACK CLIENT\n")
 		if err != nil {
 			ERROR.Println(NET, "connect got error", err)
 			return packets.ErrNetworkError, false

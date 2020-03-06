@@ -126,6 +126,7 @@ func (c *ConnectPacket) Validate() byte {
 		return ErrProtocolViolation
 	}
 	if (c.ProtocolName == "MQIsdp" && c.ProtocolVersion != 3) || (c.ProtocolName == "MQTT" && c.ProtocolVersion != 4) {
+		fmt.Printf("Proto Name %s; Proto Version: %d\n", c.ProtocolName, c.ProtocolVersion)
 		//Mismatched or unsupported protocol version
 		return ErrRefusedBadProtocolVersion
 	}

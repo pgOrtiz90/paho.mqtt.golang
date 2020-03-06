@@ -4,15 +4,18 @@ import (
 		"fmt"
 		"log"
 		"net/url"
-		"time"
+	"os"
+	"time"
 
 		mqtt "github.com/eclipse/paho.mqtt.golang"
 )
 
 
 func connect(clientId string, uri *url.URL) mqtt.Client{
-	opts := createClientOptions(cliengit dtId, uri)
+	fmt.Printf("Connecting-...\n")
+	opts := createClientOptions("pub", uri)
 	client := mqtt.NewClient(opts)
+
 	token := client.Connect()
 
 	for !token.WaitTimeout(3*time.Second){
@@ -21,6 +24,7 @@ func connect(clientId string, uri *url.URL) mqtt.Client{
 	if err := token.Error(); err != nil{
 		log.Fatal(err)
 	}
+
 	return client
 }
 
@@ -36,16 +40,12 @@ func createClientOptions(clientId string, uri *url.URL) *mqtt.ClientOptions{
 	return opts
 }
 
-func listen(uri *url.URL, topic string){
-	client := connect("sub", uri)
-	client.Subscribe(topic, 0, func(client mqtt.Client, msg mqtt.Message){
-		fmt.Printf("* [%s] %s\n", msg.Topic(), string(msg.Payload()))
-	})
-}
 
 func main(){
-	//mqtt.DEBUG = log.New(os.Stdout, "", 0)
-	//mqtt.ERROR = log.New(os.Stdout, "", 0)
+	mqtt.DEBUG = log.New(os.Stdout, "", 0)
+	mqtt.ERROR = log.New(os.Stdout, "", 0)
+	mqtt.WARN = log.New(os.Stdout, "", 0)
+	mqtt.CRITICAL = log.New(os.Stdout, "", 0)
 	uri, err := url.Parse("quic://127.0.0.1:1883/test")
 	//uri, err := url.Parse("tcp://127.0.0.1:1883/test")
 
@@ -59,7 +59,6 @@ func main(){
 		topic = "test"
 	}
 
-	//go listen(uri, topic)
 
 	client := connect("pub", uri)
 	fmt.Printf("Connected !!\n")

@@ -35,13 +35,14 @@ func (ca *ConnackPacket) Write(w io.Writer) error {
 //Unpack decodes the details of a ControlPacket after the fixed
 //header has been read
 func (ca *ConnackPacket) Unpack(b io.Reader) error {
+	fmt.Printf("Decoding\n")
 	flags, err := decodeByte(b)
 	if err != nil {
 		return err
 	}
+
 	ca.SessionPresent = 1&flags > 0
 	ca.ReturnCode, err = decodeByte(b)
-
 	return err
 }
 
