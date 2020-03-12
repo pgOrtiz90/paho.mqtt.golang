@@ -529,7 +529,7 @@ func (c *client) connect() (byte, bool) {
 			return packets.ErrNetworkError, false
 		}
 
-		DEBUG.Println(NET, "received connack")
+		DEBUG.Println(NET, "received connack. Header - Type: %d, Return Code:  %d, Session: %d", msg.MessageType,  msg.ReturnCode, msg.SessionPresent)
 		return msg.ReturnCode, msg.SessionPresent
 	}else {
 		ca, err := packets.ReadPacket(c.sess)
@@ -548,6 +548,7 @@ func (c *client) connect() (byte, bool) {
 			return packets.ErrNetworkError, false
 		}
 
+		fmt.Printf( "received connack. Header - Type: %d, Return Code:  %d, Session: %d", msg.MessageType,  msg.ReturnCode, msg.SessionPresent)
 		DEBUG.Println(NET, "received connack")
 		return msg.ReturnCode, msg.SessionPresent
 	}
