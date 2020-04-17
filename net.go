@@ -32,6 +32,8 @@ import (
 	"golang.org/x/net/proxy"
 )
 
+
+
 func signalError(c chan<- error, err error) {
 	select {
 	case c <- err:
@@ -67,7 +69,6 @@ func openConnection(uri *url.URL, tlsc *tls.Config, timeout time.Duration, heade
 		}
 		return conn, nil
 	case "unix":
-		fmt.Printf("AQUI!!! unix\n")
 		conn, err := net.DialTimeout("unix", uri.Host, timeout)
 		if err != nil {
 			return nil, err
@@ -79,7 +80,6 @@ func openConnection(uri *url.URL, tlsc *tls.Config, timeout time.Duration, heade
 		fallthrough
 	case "tcps":
 		allProxy := os.Getenv("all_proxy")
-		fmt.Printf("TCPS\n")
 		if len(allProxy) == 0 {
 			conn, err := tls.DialWithDialer(&net.Dialer{Timeout: timeout}, "tcp", uri.Host, &tls.Config{InsecureSkipVerify: true})
 
@@ -182,18 +182,39 @@ func openConnection2(uri *url.URL, tlsc *tls.Config, timeout time.Duration, head
 
 		return tlsConn, nil, nil
 	case "quic":
-		tlsConf := &tls.Config{
-			InsecureSkipVerify: true,
-			NextProtos:         []string{"quic-echo-example"},
-		}
 
-		sess, err := quic.DialAddrEarly(uri.Host, tlsConf, nil)
+		/*if connection == 0 {
+			fmt.Printf("First Connection \n")
+
+			clientConf := &tls.Config{
+				InsecureSkipVerify: true,
+				NextProtos:         []string{"quic-echo-example"},
+			}
+
+			gets := make(chan string, 100)
+			puts := make(chan string, 100)
+			clientConf.ClientSessionCache = &clientSessionCache{
+				cache: make(map[string]*tls.ClientSessionState),
+				gets:  gets,
+				puts:  puts,
+			}
+		}else{
+			fmt.Printf("Second Connection \n")
+		}
+		fmt.Printf("Dial \n")
+		sess, err := quic.DialAddrEarly(uri.Host, clientConf, nil)
 		if err != nil {
 			return nil, nil, err
 		}
-		fmt.Println("Connection QUIC stablished\n")
+		*/
+		sess, err := quic.DialAddrEarly(uri.Host, tlsc, nil)
+		if err != nil {
+			return nil, nil, err
+		}
+
+
+
 		stream, err := sess.OpenStreamSync(context.Background())
-		fmt.Println("Opening New Stream\n")
 		if err != nil {
 			fmt.Println("ERROR")
 			return nil, nil, err

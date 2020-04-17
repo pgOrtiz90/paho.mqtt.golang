@@ -99,7 +99,6 @@ var ConnErrors = map[byte]error{
 //representing the decoded MQTT packet and an error. One of these returns will
 //always be nil, a nil ControlPacket indicating an error occurred.
 func ReadPacket(r io.Reader) (ControlPacket, error) {
-	fmt.Printf("Reading packet\n")
 	var fh FixedHeader
 	b := make([]byte, 1)
 
@@ -117,7 +116,7 @@ func ReadPacket(r io.Reader) (ControlPacket, error) {
 	if err != nil {
 		return nil, err
 	}
-	fmt.Printf("Read\n")
+
 	packetBytes := make([]byte, fh.RemainingLength)
 	n, err := io.ReadFull(r, packetBytes)
 	if err != nil {
@@ -126,7 +125,7 @@ func ReadPacket(r io.Reader) (ControlPacket, error) {
 	if n != fh.RemainingLength {
 		return nil, errors.New("Failed to read expected data")
 	}
-	fmt.Printf("Unpacking\n")
+
 	err = cp.Unpack(bytes.NewBuffer(packetBytes))
 	return cp, err
 }
@@ -175,10 +174,10 @@ func NewControlPacket(packetType byte) ControlPacket {
 func NewControlPacketWithHeader(fh FixedHeader) (ControlPacket, error) {
 	switch fh.MessageType {
 	case Connect:
-		fmt.Printf("Connect packet\n")
+
 		return &ConnectPacket{FixedHeader: fh}, nil
 	case Connack:
-		fmt.Printf("Connack packet\n")
+
 		return &ConnackPacket{FixedHeader: fh}, nil
 	case Disconnect:
 		return &DisconnectPacket{FixedHeader: fh}, nil
@@ -263,7 +262,6 @@ func decodeByte(b io.Reader) (byte, error) {
 	if err != nil {
 		return 0, err
 	}
-	fmt.Printf("Decoding Byte\n")
 	return num[0], nil
 }
 

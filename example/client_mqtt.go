@@ -32,13 +32,10 @@ func connect(clientId string, uri *url.URL) mqtt.Client{
 
 func createClientOptions(clientId string, uri *url.URL) *mqtt.ClientOptions{
 	opts := mqtt.NewClientOptions()
-<<<<<<< HEAD
-	opts.AddBroker(fmt.Sprintf("tcps://%s", uri.Host))
+	//opts.AddBroker(fmt.Sprintf("tcps://%s", uri.Host))
 	//opts.SetUsername(uri.User.Username())
-=======
 	opts.AddBroker(fmt.Sprintf("quic://%s", uri.Host))
 	opts.SetUsername("")
->>>>>>> 276267a6626d155702b46e977f4027cc2e3311c0
 	//password, _ := uri.User.Password()
 	opts.SetPassword("")
 	opts.SetClientID(clientId)
@@ -59,8 +56,8 @@ func main(){
 	//mqtt.ERROR = log.New(os.Stdout, "", 0)
 	//mqtt.WARN = log.New(os.Stdout, "", 0)
 	//mqtt.CRITICAL = log.New(os.Stdout, "", 0)
-	uri, err := url.Parse("tcps://127.0.0.1:1884/test")
-	//uri, err := url.Parse("tcp://127.0.0.1:1883/test")
+	//	uri, err := url.Parse("quic://127.0.0.1:1883	/test")
+	uri, err := url.Parse("quic://127.0.0.1:1883/test")
 
 	if err != nil {
 		log.Fatal(err)

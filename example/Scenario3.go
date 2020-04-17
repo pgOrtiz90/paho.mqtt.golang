@@ -34,7 +34,7 @@ func main(){
 	mqtt.WARN = log.New(os.Stdout, "", 0)
 	mqtt.CRITICAL = log.New(os.Stdout, "", 0)
 
-	broker := flag.String("broker","tcp://127.0.0.1:1883", "Broker type")
+	broker := flag.String("broker","quic://127.0.0.1:1883", "Broker type")
 	topic := flag.String("topic", "test", "The topic name to/from which to publish/subscribe")
 	fileName := flag.String("file","","Files name")
 	flag.Parse()

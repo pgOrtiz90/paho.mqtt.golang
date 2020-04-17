@@ -19,6 +19,7 @@ package mqtt
 
 import (
 	"bytes"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"net"
@@ -119,6 +120,34 @@ type client struct {
 	workers         sync.WaitGroup
 }
 
+
+type clientSessionCache struct {
+	mutex sync.Mutex
+	cache map[string]*tls.ClientSessionState
+
+	gets chan<- string
+	puts chan<- string
+}
+
+func (c *clientSessionCache) Get(sessionKey string) (*tls.ClientSessionState, bool) {
+	c.gets <- sessionKey
+	c.mutex.Lock()
+	session, ok := c.cache[sessionKey]
+	c.mutex.Unlock()
+	return session, ok
+}
+
+func (c *clientSessionCache) Put(sessionKey string, cs *tls.ClientSessionState) {
+	c.puts <- sessionKey
+	c.mutex.Lock()
+	c.cache[sessionKey] = cs
+	c.mutex.Unlock()
+}
+
+
+var _ tls.ClientSessionCache = &clientSessionCache{}
+
+
 // NewClient will create an MQTT v3.1.1 client with all of the options specified
 // in the provided ClientOptions. The client must have the Connect method called
 // on it before it may be used. This is to make sure resources (such as a net
@@ -126,6 +155,17 @@ type client struct {
 func NewClient(o *ClientOptions) Client {
 	c := &client{}
 	c.options = *o
+	c.options.TLSConfig = &tls.Config{
+		InsecureSkipVerify: true,
+		NextProtos:         []string{"quic-echo-example"},
+	}
+	gets := make(chan string, 100)
+	puts := make(chan string, 100)
+	c.options.TLSConfig.ClientSessionCache = &clientSessionCache{
+		cache: make(map[string]*tls.ClientSessionState),
+		gets:  gets,
+		puts:  puts,
+	}
 
 	if c.options.Store == nil {
 		c.options.Store = NewMemoryStore()
@@ -211,7 +251,6 @@ var ErrNotConnected = errors.New("Not Connected")
 // it will attempt to connect at v3.1.1 and auto retry at v3.1 if that
 // fails
 func (c *client) Connect() Token {
-	fmt.Printf("Connecting Client MQTT...\n")
 	var err error
 	t := newToken(packets.Connect).(*ConnectToken)
 	DEBUG.Println(CLI, "Connect()")
@@ -242,7 +281,6 @@ func (c *client) Connect() Token {
 
 		var rc byte
 		protocolVersion := c.options.ProtocolVersion
-		fmt.Printf("%d\n", protocolVersion)
 
 		if len(c.options.Servers) == 0 {
 			t.setError(fmt.Errorf("No servers defined to connect to"))
@@ -510,11 +548,8 @@ func (c *client) reconnect() {
 // is in progress if clean session is false.
 func (c *client) connect() (byte, bool) {
 	fmt.Println(NET, "connect started")
-	fmt.Printf("Connect Started\n")
 	if c.conn != nil{
-		fmt.Printf("ConnACK CLIENT\n")
 		ca, err := packets.ReadPacket(c.conn)
-		fmt.Printf("ConnACK CLIENT\n")
 		if err != nil {
 			ERROR.Println(NET, "connect got error", err)
 			return packets.ErrNetworkError, false
@@ -529,12 +564,7 @@ func (c *client) connect() (byte, bool) {
 			ERROR.Println(NET, "received msg that was not CONNACK")
 			return packets.ErrNetworkError, false
 		}
-
-<<<<<<< HEAD
-		fmt.Println(NET, "received connack")
-=======
 		DEBUG.Println(NET, "received connack. Header - Type: %d, Return Code:  %d, Session: %d", msg.MessageType,  msg.ReturnCode, msg.SessionPresent)
->>>>>>> 276267a6626d155702b46e977f4027cc2e3311c0
 		return msg.ReturnCode, msg.SessionPresent
 	}else {
 		ca, err := packets.ReadPacket(c.sess)
@@ -553,12 +583,7 @@ func (c *client) connect() (byte, bool) {
 			return packets.ErrNetworkError, false
 		}
 
-<<<<<<< HEAD
-		fmt.Println(NET, "received connack")
-=======
-		fmt.Printf( "received connack. Header - Type: %d, Return Code:  %d, Session: %d", msg.MessageType,  msg.ReturnCode, msg.SessionPresent)
 		DEBUG.Println(NET, "received connack")
->>>>>>> 276267a6626d155702b46e977f4027cc2e3311c0
 		return msg.ReturnCode, msg.SessionPresent
 	}
 }
@@ -679,7 +704,6 @@ func (c *client) disconnect() {
 // to the specified topic.
 // Returns a token to track delivery of the message to the broker
 func (c *client) Publish(topic string, qos byte, retained bool, payload interface{}) Token {
-	fmt.Printf("Publish!\n")
 	token := newToken(packets.Publish).(*PublishToken)
 	fmt.Println(CLI, "enter Publish")
 	switch {

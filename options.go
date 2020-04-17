@@ -113,7 +113,7 @@ func NewClientOptions() *ClientOptions {
 		PingTimeout:             10 * time.Second,
 		ConnectTimeout:          30 * time.Second,
 		MaxReconnectInterval:    10 * time.Minute,
-		AutoReconnect:           true,
+		AutoReconnect:           false,
 		ConnectRetryInterval:    30 * time.Second,
 		ConnectRetry:            false,
 		Store:                   nil,
