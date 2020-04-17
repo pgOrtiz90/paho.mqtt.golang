@@ -53,13 +53,14 @@ func openConnection(uri *url.URL, tlsc *tls.Config, timeout time.Duration, heade
 		allProxy := os.Getenv("all_proxy")
 		if len(allProxy) == 0 {
 			conn, err := net.DialTimeout("tcp", uri.Host, timeout)
+			
 			if err != nil {
 				return nil, err
 			}
 			return conn, nil
 		}
 		proxyDialer := proxy.FromEnvironment()
-
+	
 		conn, err := proxyDialer.Dial("tcp", uri.Host)
 		if err != nil {
 			return nil, err
@@ -78,21 +79,23 @@ func openConnection(uri *url.URL, tlsc *tls.Config, timeout time.Duration, heade
 		fallthrough
 	case "tcps":
 		allProxy := os.Getenv("all_proxy")
+		fmt.Printf("TCPS\n")
 		if len(allProxy) == 0 {
-			conn, err := tls.DialWithDialer(&net.Dialer{Timeout: timeout}, "tcp", uri.Host, tlsc)
+			conn, err := tls.DialWithDialer(&net.Dialer{Timeout: timeout}, "tcp", uri.Host, &tls.Config{InsecureSkipVerify: true})
+
 			if err != nil {
 				return nil, err
 			}
 			return conn, nil
 		}
 		proxyDialer := proxy.FromEnvironment()
-
+		
 		conn, err := proxyDialer.Dial("tcp", uri.Host)
 		if err != nil {
 			return nil, err
 		}
 
-		tlsConn := tls.Client(conn, tlsc)
+		tlsConn := tls.Client(conn, &tls.Config{InsecureSkipVerify:true})
 
 		err = tlsConn.Handshake()
 		if err != nil {
@@ -124,13 +127,14 @@ func openConnection2(uri *url.URL, tlsc *tls.Config, timeout time.Duration, head
 		allProxy := os.Getenv("all_proxy")
 		if len(allProxy) == 0 {
 			conn, err := net.DialTimeout("tcp", uri.Host, timeout)
+	
 			if err != nil {
 				return nil, nil, err
 			}
 			return conn, nil,nil
 		}
 		proxyDialer := proxy.FromEnvironment()
-
+		
 		conn, err := proxyDialer.Dial("tcp", uri.Host)
 		if err != nil {
 			return nil, nil, err
@@ -148,8 +152,14 @@ func openConnection2(uri *url.URL, tlsc *tls.Config, timeout time.Duration, head
 		fallthrough
 	case "tcps":
 		allProxy := os.Getenv("all_proxy")
+		fmt.Printf("TCPS\n")
+		tlsConf := &tls.Config{
+			InsecureSkipVerify: true,
+			PreferServerCipherSuites: true,
+		}
 		if len(allProxy) == 0 {
-			conn, err := tls.DialWithDialer(&net.Dialer{Timeout: timeout}, "tcp", uri.Host, tlsc)
+			conn, err := tls.DialWithDialer(&net.Dialer{Timeout: timeout}, "tcp", uri.Host, tlsConf)
+
 			if err != nil {
 				return nil, nil, err
 			}
@@ -162,7 +172,7 @@ func openConnection2(uri *url.URL, tlsc *tls.Config, timeout time.Duration, head
 			return nil, nil, err
 		}
 
-		tlsConn := tls.Client(conn, tlsc)
+		tlsConn := tls.Client(conn, tlsConf)
 
 		err = tlsConn.Handshake()
 		if err != nil {
@@ -176,14 +186,16 @@ func openConnection2(uri *url.URL, tlsc *tls.Config, timeout time.Duration, head
 			InsecureSkipVerify: true,
 			NextProtos:         []string{"quic-echo-example"},
 		}
-		sess, err := quic.DialAddr(uri.Host, tlsConf, nil )
+
+		sess, err := quic.DialAddrEarly(uri.Host, tlsConf, nil)
 		if err != nil {
 			return nil, nil, err
 		}
-
+		fmt.Println("Connection QUIC stablished\n")
 		stream, err := sess.OpenStreamSync(context.Background())
-
+		fmt.Println("Opening New Stream\n")
 		if err != nil {
+			fmt.Println("ERROR")
 			return nil, nil, err
 		}
 
@@ -216,7 +228,7 @@ func incoming(c *client) {
 			}
 		}
 
-		DEBUG.Println(NET, "Received Message")
+		fmt.Println(NET, "Received Message")
 		select {
 		case c.ibound <- cp:
 			// Notify keepalive logic that we recently received a packet
