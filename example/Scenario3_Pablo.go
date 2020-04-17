@@ -67,11 +67,13 @@ func main(){
 	t.Print(tx_time,time_tx)
 	fmt.Printf("Time of, connect-publish: %f us\n", tx_time)
 
-	time.Sleep(10 * time.Second)
+	time.Sleep(1 * time.Second)
 
 	client.Disconnect(0)
 
-	time.Sleep(10 * time.Second)
+	time.Sleep(1 * time.Second)
+
+
 	start = time.Now()
 	if token := client.Connect(); token.Wait() && token.Error() != nil{
 		panic(token.Error())
@@ -81,7 +83,7 @@ func main(){
 	token.Wait()
 	end = time.Now()
 
-	time.Sleep(10 * time.Second)
+	//time.Sleep(10 * time.Second)
 
 	client.Disconnect(0)
 
