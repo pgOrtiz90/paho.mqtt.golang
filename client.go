@@ -266,22 +266,23 @@ func (c *client) Connect() Token {
 				c.options.HTTPHeaders)
 			c.Unlock()
 			if err == nil {
-				DEBUG.Println(CLI, "socket connected to broker")
+				fmt.Println(CLI, "socket connected to broker")
+
 				switch c.options.ProtocolVersion {
 				case 3:
-					DEBUG.Println(CLI, "Using MQTT 3.1 protocol")
+					fmt.Println(CLI, "Using MQTT 3.1 protocol")
 					cm.ProtocolName = "MQIsdp"
 					cm.ProtocolVersion = 3
 				case 0x83:
-					DEBUG.Println(CLI, "Using MQTT 3.1b protocol")
+					fmt.Println(CLI, "Using MQTT 3.1b protocol")
 					cm.ProtocolName = "MQIsdp"
 					cm.ProtocolVersion = 0x83
 				case 0x84:
-					DEBUG.Println(CLI, "Using MQTT 3.1.1b protocol")
+					fmt.Println(CLI, "Using MQTT 3.1.1b protocol")
 					cm.ProtocolName = "MQTT"
 					cm.ProtocolVersion = 0x84
 				default:
-					DEBUG.Println(CLI, "Using MQTT 3.1.1 protocol")
+					fmt.Println(CLI, "Using MQTT 3.1.1 protocol")
 					c.options.ProtocolVersion = 4
 					cm.ProtocolName = "MQTT"
 					cm.ProtocolVersion = 4
@@ -312,7 +313,7 @@ func (c *client) Connect() Token {
 						continue
 					}
 					if c.options.ProtocolVersion == 4 {
-						DEBUG.Println(CLI, "Trying reconnect using MQTT 3.1 protocol")
+						fmt.Println(CLI, "Trying reconnect using MQTT 3.1 protocol")
 						c.options.ProtocolVersion = 3
 						goto CONN
 					}
@@ -360,7 +361,7 @@ func (c *client) Connect() Token {
 		c.msgRouter.matchAndDispatch(c.incomingPubChan, c.options.Order, c)
 
 		c.setConnected(connected)
-		DEBUG.Println(CLI, "client is connected")
+		fmt.Println(CLI, "client is connected")
 		if c.options.OnConnect != nil {
 			go c.options.OnConnect(c)
 		}
@@ -387,7 +388,7 @@ func (c *client) Connect() Token {
 
 // internal function used to reconnect the client when it loses its connection
 func (c *client) reconnect() {
-	DEBUG.Println(CLI, "enter reconnect")
+	fmt.Println(CLI, "enter reconnect")
 	var (
 		err error
 
@@ -410,22 +411,22 @@ func (c *client) reconnect() {
 			c.conn, c.sess, err = openConnection2(broker, c.options.TLSConfig, c.options.ConnectTimeout, c.options.HTTPHeaders)
 			c.Unlock()
 			if err == nil {
-				DEBUG.Println(CLI, "socket connected to broker")
+				fmt.Println(CLI, "socket connected to broker")
 				switch c.options.ProtocolVersion {
 				case 0x83:
-					DEBUG.Println(CLI, "Using MQTT 3.1b protocol")
+					fmt.Println(CLI, "Using MQTT 3.1b protocol")
 					cm.ProtocolName = "MQIsdp"
 					cm.ProtocolVersion = 0x83
 				case 0x84:
-					DEBUG.Println(CLI, "Using MQTT 3.1.1b protocol")
+					fmt.Println(CLI, "Using MQTT 3.1.1b protocol")
 					cm.ProtocolName = "MQTT"
 					cm.ProtocolVersion = 0x84
 				case 3:
-					DEBUG.Println(CLI, "Using MQTT 3.1 protocol")
+					fmt.Println(CLI, "Using MQTT 3.1 protocol")
 					cm.ProtocolName = "MQIsdp"
 					cm.ProtocolVersion = 3
 				default:
-					DEBUG.Println(CLI, "Using MQTT 3.1.1 protocol")
+					fmt.Println(CLI, "Using MQTT 3.1.1 protocol")
 					cm.ProtocolName = "MQTT"
 					cm.ProtocolVersion = 4
 				}
@@ -488,7 +489,7 @@ func (c *client) reconnect() {
 	}
 
 	c.setConnected(connected)
-	DEBUG.Println(CLI, "client is reconnected")
+	fmt.Println(CLI, "client is reconnected")
 	if c.options.OnConnect != nil {
 		go c.options.OnConnect(c)
 	}
@@ -508,7 +509,7 @@ func (c *client) reconnect() {
 // This prevents receiving incoming data while resume
 // is in progress if clean session is false.
 func (c *client) connect() (byte, bool) {
-	DEBUG.Println(NET, "connect started")
+	fmt.Println(NET, "connect started")
 	fmt.Printf("Connect Started\n")
 	if c.conn != nil{
 		fmt.Printf("ConnACK CLIENT\n")
@@ -529,7 +530,7 @@ func (c *client) connect() (byte, bool) {
 			return packets.ErrNetworkError, false
 		}
 
-		DEBUG.Println(NET, "received connack")
+		fmt.Println(NET, "received connack")
 		return msg.ReturnCode, msg.SessionPresent
 	}else {
 		ca, err := packets.ReadPacket(c.sess)
@@ -548,7 +549,7 @@ func (c *client) connect() (byte, bool) {
 			return packets.ErrNetworkError, false
 		}
 
-		DEBUG.Println(NET, "received connack")
+		fmt.Println(NET, "received connack")
 		return msg.ReturnCode, msg.SessionPresent
 	}
 }
@@ -559,7 +560,7 @@ func (c *client) connect() (byte, bool) {
 func (c *client) Disconnect(quiesce uint) {
 	status := atomic.LoadUint32(&c.status)
 	if status == connected {
-		DEBUG.Println(CLI, "disconnecting")
+		fmt.Println(CLI, "disconnecting")
 		c.setConnected(disconnected)
 
 		dm := packets.NewControlPacket(packets.Disconnect).(*packets.DisconnectPacket)
@@ -588,7 +589,7 @@ func (c *client) forceDisconnect() {
 	}else if c.sess != nil{
 		c.sess.Close()
 	}
-	DEBUG.Println(CLI, "forcefully disconnecting")
+	fmt.Println(CLI, "forcefully disconnecting")
 	c.disconnect()
 }
 
@@ -661,7 +662,7 @@ func (c *client) disconnect() {
 	c.workers.Wait()
 	c.messageIds.cleanUp()
 	c.closeStopRouter()
-	DEBUG.Println(CLI, "disconnected")
+	fmt.Println(CLI, "disconnected")
 	c.persist.Close()
 }
 
@@ -671,7 +672,7 @@ func (c *client) disconnect() {
 func (c *client) Publish(topic string, qos byte, retained bool, payload interface{}) Token {
 	fmt.Printf("Publish!\n")
 	token := newToken(packets.Publish).(*PublishToken)
-	DEBUG.Println(CLI, "enter Publish")
+	fmt.Println(CLI, "enter Publish")
 	switch {
 	case !c.IsConnected():
 		token.setError(ErrNotConnected)
@@ -703,11 +704,11 @@ func (c *client) Publish(topic string, qos byte, retained bool, payload interfac
 	persistOutbound(c.persist, pub)
 	switch c.connectionStatus() {
 	case connecting:
-		DEBUG.Println(CLI, "storing publish message (connecting), topic:", topic)
+		fmt.Println(CLI, "storing publish message (connecting), topic:", topic)
 	case reconnecting:
-		DEBUG.Println(CLI, "storing publish message (reconnecting), topic:", topic)
+		fmt.Println(CLI, "storing publish message (reconnecting), topic:", topic)
 	default:
-		DEBUG.Println(CLI, "sending publish message, topic:", topic)
+		fmt.Println(CLI, "sending publish message, topic:", topic)
 		publishWaitTimeout := c.options.WriteTimeout
 		if publishWaitTimeout == 0 {
 			publishWaitTimeout = time.Second * 30
@@ -725,7 +726,7 @@ func (c *client) Publish(topic string, qos byte, retained bool, payload interfac
 // a message is published on the topic provided.
 func (c *client) Subscribe(topic string, qos byte, callback MessageHandler) Token {
 	token := newToken(packets.Subscribe).(*SubscribeToken)
-	DEBUG.Println(CLI, "enter Subscribe")
+	fmt.Println(CLI, "enter Subscribe")
 	if !c.IsConnected() {
 		token.setError(ErrNotConnected)
 		return token
@@ -773,11 +774,11 @@ func (c *client) Subscribe(topic string, qos byte, callback MessageHandler) Toke
 	persistOutbound(c.persist, sub)
 	switch c.connectionStatus() {
 	case connecting:
-		DEBUG.Println(CLI, "storing subscribe message (connecting), topic:", topic)
+		fmt.Println(CLI, "storing subscribe message (connecting), topic:", topic)
 	case reconnecting:
-		DEBUG.Println(CLI, "storing subscribe message (reconnecting), topic:", topic)
+		fmt.Println(CLI, "storing subscribe message (reconnecting), topic:", topic)
 	default:
-		DEBUG.Println(CLI, "sending subscribe message, topic:", topic)
+		fmt.Println(CLI, "sending subscribe message, topic:", topic)
 		subscribeWaitTimeout := c.options.WriteTimeout
 		if subscribeWaitTimeout == 0 {
 			subscribeWaitTimeout = time.Second * 30
@@ -788,7 +789,7 @@ func (c *client) Subscribe(topic string, qos byte, callback MessageHandler) Toke
 			token.setError(errors.New("subscribe was broken by timeout"))
 		}
 	}
-	DEBUG.Println(CLI, "exit Subscribe")
+	fmt.Println(CLI, "exit Subscribe")
 	return token
 }
 
@@ -797,7 +798,7 @@ func (c *client) Subscribe(topic string, qos byte, callback MessageHandler) Toke
 func (c *client) SubscribeMultiple(filters map[string]byte, callback MessageHandler) Token {
 	var err error
 	token := newToken(packets.Subscribe).(*SubscribeToken)
-	DEBUG.Println(CLI, "enter SubscribeMultiple")
+	fmt.Println(CLI, "enter SubscribeMultiple")
 	if !c.IsConnected() {
 		token.setError(ErrNotConnected)
 		return token
@@ -835,11 +836,11 @@ func (c *client) SubscribeMultiple(filters map[string]byte, callback MessageHand
 	persistOutbound(c.persist, sub)
 	switch c.connectionStatus() {
 	case connecting:
-		DEBUG.Println(CLI, "storing subscribe message (connecting), topics:", sub.Topics)
+		fmt.Println(CLI, "storing subscribe message (connecting), topics:", sub.Topics)
 	case reconnecting:
-		DEBUG.Println(CLI, "storing subscribe message (reconnecting), topics:", sub.Topics)
+		fmt.Println(CLI, "storing subscribe message (reconnecting), topics:", sub.Topics)
 	default:
-		DEBUG.Println(CLI, "sending subscribe message, topics:", sub.Topics)
+		fmt.Println(CLI, "sending subscribe message, topics:", sub.Topics)
 		subscribeWaitTimeout := c.options.WriteTimeout
 		if subscribeWaitTimeout == 0 {
 			subscribeWaitTimeout = time.Second * 30
@@ -850,7 +851,7 @@ func (c *client) SubscribeMultiple(filters map[string]byte, callback MessageHand
 			token.setError(errors.New("subscribe was broken by timeout"))
 		}
 	}
-	DEBUG.Println(CLI, "exit SubscribeMultiple")
+	fmt.Println(CLI, "exit SubscribeMultiple")
 	return token
 }
 
@@ -1021,5 +1022,5 @@ func (c *client) OptionsReader() ClientOptionsReader {
 //DefaultConnectionLostHandler is a definition of a function that simply
 //reports to the DEBUG log the reason for the client losing a connection.
 func DefaultConnectionLostHandler(client Client, reason error) {
-	DEBUG.Println("Connection lost:", reason.Error())
+	fmt.Println("Connection lost:", reason.Error())
 }
