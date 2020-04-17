@@ -31,7 +31,7 @@ var f mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
 func main() {
 	mqtt.DEBUG = log.New(os.Stdout, "", 0)
 	mqtt.ERROR = log.New(os.Stdout, "", 0)
-	opts := mqtt.NewClientOptions().AddBroker("tcp://iot.eclipse.org:1883").SetClientID("gotrivial")
+	opts := mqtt.NewClientOptions().AddBroker("tcps://127.0.0.1:1884").SetClientID("gotrivial")
 	opts.SetKeepAlive(2 * time.Second)
 	opts.SetDefaultPublishHandler(f)
 	opts.SetPingTimeout(1 * time.Second)
@@ -61,5 +61,5 @@ func main() {
 
 	c.Disconnect(250)
 
-	time.Sleep(1 * time.Second)
+//	time.Sleep(1 * time.Second)
 }

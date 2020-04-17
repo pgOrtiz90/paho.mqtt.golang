@@ -71,7 +71,7 @@ func main(){
 
 	topic := "test"
 
-	opts := mqtt.NewClientOptions().AddBroker("tcp://localhost:1883")
+	opts := mqtt.NewClientOptions().AddBroker("quic://localhost:1883")
 
 	client := mqtt.NewClient(opts)
 	if token := client.Connect(); token.Wait() && token.Error() != nil {

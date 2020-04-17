@@ -32,10 +32,15 @@ func connect(clientId string, uri *url.URL) mqtt.Client{
 
 func createClientOptions(clientId string, uri *url.URL) *mqtt.ClientOptions{
 	opts := mqtt.NewClientOptions()
+<<<<<<< HEAD
 	opts.AddBroker(fmt.Sprintf("tcps://%s", uri.Host))
 	//opts.SetUsername(uri.User.Username())
+=======
+	opts.AddBroker(fmt.Sprintf("quic://%s", uri.Host))
+	opts.SetUsername("")
+>>>>>>> 276267a6626d155702b46e977f4027cc2e3311c0
 	//password, _ := uri.User.Password()
-	//opts.SetPassword(password)
+	opts.SetPassword("")
 	opts.SetClientID(clientId)
 
 	return opts

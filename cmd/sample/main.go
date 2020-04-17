@@ -11,7 +11,7 @@
  *    Allan Stockdill-Mander
  *    Mike Robertson
  */
-
+/*
 package main
 
 import (
@@ -39,9 +39,10 @@ Options:
 
 */
 
-func main() {
+/*func main() {
 	topic := flag.String("topic", "", "The topic name to/from which to publish/subscribe")
-	broker := flag.String("broker", "tcp://iot.eclipse.org:1883", "The broker URI. ex: tcp://10.10.1.1:1883")
+	broker := flag.String("broker", "tcp://127.0.0.1:1883", "The broker URI. ex: tcp://10.10.1.1:1883")
+	//broker := flag.String("broker", "quic://127.0.0.1:1883","The broker URI. ex: quic://127.0.0.1:1883")
 	password := flag.String("password", "", "The password (optional)")
 	user := flag.String("user", "", "The User (optional)")
 	id := flag.String("id", "testgoid", "The ClientID (optional)")
@@ -101,26 +102,27 @@ func main() {
 		client.Disconnect(250)
 		fmt.Println("Sample Publisher Disconnected")
 	} else {
-		receiveCount := 0
-		choke := make(chan [2]string)
-
+		//receiveCount := 0
+		//choke := make(chan [2]string)
+/*
 		opts.SetDefaultPublishHandler(func(client MQTT.Client, msg MQTT.Message) {
-			choke <- [2]string{msg.Topic(), string(msg.Payload())}
+			//choke <- [2]string{msg.Topic(), string(msg.Payload())}
+			fmt.Printf("Msg topic %s\n", *topic)
 		})
 
 		client := MQTT.NewClient(opts)
 		if token := client.Connect(); token.Wait() && token.Error() != nil {
 			panic(token.Error())
 		}
-
 		if token := client.Subscribe(*topic, byte(*qos), nil); token.Wait() && token.Error() != nil {
 			fmt.Println(token.Error())
 			os.Exit(1)
 		}
 
-		for receiveCount < *num {
-			incoming := <-choke
-			fmt.Printf("RECEIVED TOPIC: %s MESSAGE: %s\n", incoming[0], incoming[1])
+	for receiveCount < *num {
+		//	incoming := <-choke
+		//	fmt.Printf("RECEIVED TOPIC: %s MESSAGE: %s\n", incoming[0], incoming[1])
+			fmt.Printf("Topic %s message %d \n", *topic, receiveCount)
 			receiveCount++
 		}
 
@@ -128,3 +130,4 @@ func main() {
 		fmt.Println("Sample Subscriber Disconnected")
 	}
 }
+*/
