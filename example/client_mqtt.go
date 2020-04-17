@@ -4,7 +4,7 @@ import (
 		"fmt"
 		"log"
 		"net/url"
-	"os"
+//	"os"
 	"time"
 
 		mqtt "github.com/eclipse/paho.mqtt.golang"
@@ -13,6 +13,7 @@ import (
 
 func connect(clientId string, uri *url.URL) mqtt.Client{
 	fmt.Printf("Connecting-...\n")
+	//opts := createClientOptions("pub", uri)
 	opts := createClientOptions("pub", uri)
 	client := mqtt.NewClient(opts)
 
@@ -31,7 +32,7 @@ func connect(clientId string, uri *url.URL) mqtt.Client{
 
 func createClientOptions(clientId string, uri *url.URL) *mqtt.ClientOptions{
 	opts := mqtt.NewClientOptions()
-	opts.AddBroker(fmt.Sprintf("quic://%s", uri.Host))
+	opts.AddBroker(fmt.Sprintf("tcps://%s", uri.Host))
 	//opts.SetUsername(uri.User.Username())
 	//password, _ := uri.User.Password()
 	//opts.SetPassword(password)
@@ -40,13 +41,20 @@ func createClientOptions(clientId string, uri *url.URL) *mqtt.ClientOptions{
 	return opts
 }
 
+func listen(uri *url.URL, topic string){
+	fmt.Printf("Hola 1\n")
+	client := connect("sub",uri)
+	client.Subscribe(topic,0, func(client mqtt.Client, msg mqtt.Message){
+		fmt.Printf("* [%s] %s\n", msg.Topic(),string(msg.Payload()))
+	})
 
+}
 func main(){
-	mqtt.DEBUG = log.New(os.Stdout, "", 0)
-	mqtt.ERROR = log.New(os.Stdout, "", 0)
-	mqtt.WARN = log.New(os.Stdout, "", 0)
-	mqtt.CRITICAL = log.New(os.Stdout, "", 0)
-	uri, err := url.Parse("quic://127.0.0.1:1883/test")
+	//mqtt.DEBUG = log.New(os.Stdout, "", 0)
+	//mqtt.ERROR = log.New(os.Stdout, "", 0)
+	//mqtt.WARN = log.New(os.Stdout, "", 0)
+	//mqtt.CRITICAL = log.New(os.Stdout, "", 0)
+	uri, err := url.Parse("tcps://127.0.0.1:1884/test")
 	//uri, err := url.Parse("tcp://127.0.0.1:1883/test")
 
 	if err != nil {
@@ -62,7 +70,7 @@ func main(){
 
 	client := connect("pub", uri)
 	fmt.Printf("Connected !!\n")
-	timer := time.NewTicker(1 *  time.Second)
+	timer := time.NewTicker(2 *  time.Second)
 
 	for t := range timer.C {
 		msg := t.String()
